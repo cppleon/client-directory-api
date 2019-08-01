@@ -1,0 +1,19 @@
+version: '3.7'
+
+services:
+  mongodb:
+    image: mongo
+    ports:
+      - 27017:27017
+    restart: unless-stopped
+
+  client-directory-api:
+    build: .
+    command: sh -c 'npm install && pm2-runtime start pm2.json'
+    depends_on:
+      - mongodb
+    ports:
+      - 3000:3000
+    volumes:
+      - .:/usr/src/app
+    restart: unless-stopped

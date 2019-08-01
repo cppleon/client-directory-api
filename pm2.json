@@ -1,0 +1,12 @@
+{
+  "name": "client-directory-api",
+  "script": "bin/www",
+  "watch": true,
+  "env": {
+    "DEBUG": "client-directory-api:*",
+    "NODE_ENV": "development"
+  },
+  "env_production": {
+    "NODE_ENV": "production"
+  }
+}

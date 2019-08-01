@@ -1,0 +1,9 @@
+{
+  "mongodb": {
+    "uris": "mongodb://mongodb:27017/client-directory-staging",
+    "options": {
+      "useCreateIndex": true,
+      "useNewUrlParser": true
+    }
+  }
+}
