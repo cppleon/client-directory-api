@@ -25,7 +25,8 @@ const schema = Joi.object().options({
     .regex(/^5[0-9]{8}$/)
     .required(),
 
-  pictureFileId: Joi.string(),
+  pictureFileId: Joi.string()
+    .allow(''),
 
   address: Joi.object()
     .required().keys({

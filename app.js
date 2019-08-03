@@ -29,9 +29,12 @@ app.use((req, res, next) => {
 
 // error handler
 app.use((err, req, res, next) => {
+  // catch validation errors
   if (err.name === 'ValidationError') {
-    res.jsend.fail(err.details)
-    return
+    if (err.details) { // Joi validation error
+      res.jsend.fail(err.details)
+      return
+    }
   }
 
   res.jsend.error(err)

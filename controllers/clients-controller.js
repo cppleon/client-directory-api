@@ -6,26 +6,33 @@ const Client = require('../models/Client')
 const Account = require('../models/Account')
 const Helpers = require('../utils/helpers')
 
-async function deleteClient (id) {
+async function deleteClientAndCloseAccounts (id) {
   const session = await mongoose.startSession()
 
   session.startTransaction()
 
-  const accountUpdate = {
-    $set: { status: 0 }
-  }
-
-  const clientUpdate = {
-    deletedAt: new Date()
-  }
-
   try {
+    const accountUpdate = {
+      $set: { status: 0 }
+    }
+
     await Account.updateMany({ client: id }, accountUpdate)
-    return await Client.findByIdAndUpdate(id, clientUpdate, { new: true })
+
+    const clientUpdate = {
+      deletedAt: new Date()
+    }
+
+    const client = await Client.findByIdAndUpdate(id, clientUpdate, { new: true })
+
+    await session.commitTransaction()
+    session.endSession()
+    return client
   } catch (e) {
+    // If an error occurred, abort the whole transaction and
+    // undo any changes that might have happened
     await session.abortTransaction()
     session.endSession()
-    throw e
+    throw e // Rethrow so calling function sees error
   }
 }
 
@@ -37,17 +44,46 @@ module.exports = {
    * @param {*} next
    */
   index (req, res, next) {
-    const { skip, limit,
-      sort: sortParams } = req.query
+    const conditions = {}
 
-    const sort = Helpers.generateSortQuery(sortParams, ['firstName', 'lastName', 'gender'])
+    const { q, status } = req.query
 
-    const conditions = {
-      deletedAt: { $exists: false }
+    switch (status) {
+      case '0':
+        conditions.$and = [{
+          deletedAt: { $exists: true }
+        }]
+        break
+      case '1':
+        conditions.$and = [{
+          deletedAt: { $exists: false }
+        }]
+        break
+    }
+
+    if (q && q.length) {
+      const pattern = q.replace(/[|\\{}()[\]^$+*?.-]/g, '\\$&')
+
+      const fieldsToMatch = ['pid', 'firstName', 'lastName', 'phoneNumber']
+
+      const or = fieldsToMatch.map((field) => {
+        return { [field]: new RegExp(`${pattern}`, 'i') }
+      })
+
+      if (!conditions.$and) {
+        conditions.$and = [{ $or: or }]
+      } else {
+        conditions.$and.push({ $or: or })
+      }
     }
 
     async.parallel({
       docs (cb) {
+        const { skip, limit,
+          sort: sortParams } = req.query
+
+        const sort = Helpers.generateSortQuery(sortParams, ['firstName', 'lastName', 'gender'])
+
         Client.find(conditions)
           .skip(skip)
           .limit(limit)
@@ -55,8 +91,8 @@ module.exports = {
           .exec(cb)
       },
 
-      count (cb) {
-        Client.count(conditions, cb)
+      totalCount (cb) {
+        Client.countDocuments(conditions, cb)
       }
     }, (err, results) => {
       if (err) {
@@ -66,7 +102,7 @@ module.exports = {
 
       res.jsend.success({
         items: results.docs,
-        totalCount: results.count
+        totalCount: results.totalCount
       })
     })
   },
@@ -80,10 +116,7 @@ module.exports = {
   get (req, res, next) {
     const { id } = req.params
 
-    const conditions = {
-      _id: id,
-      deletedAt: { $exists: false }
-    }
+    const conditions = { _id: id }
 
     Client.findOne(conditions, (err, doc) => {
       if (err) {
@@ -100,6 +133,37 @@ module.exports = {
     })
   },
 
+  getCounts (req, res, next) {
+    async.parallel({
+      active (cb) {
+        Client.countDocuments({
+          deletedAt: { $exists: false }
+        }, cb)
+      },
+
+      inactive (cb) {
+        Client.countDocuments({
+          deletedAt: { $exists: true }
+        }, cb)
+      },
+
+      total (cb) {
+        Client.estimatedDocumentCount(cb)
+      }
+    }, (err, results) => {
+      if (err) {
+        next(err)
+        return
+      }
+
+      res.jsend.success({
+        active: results.active,
+        inactive: results.inactive,
+        total: results.total
+      })
+    })
+  },
+
   /**
    *
    * @param {*} req
@@ -107,7 +171,23 @@ module.exports = {
    * @param {*} next
    */
   create (req, res, next) {
-    const client = new Client(req.validationResult)
+    const { pid,
+      firstName,
+      lastName,
+      gender,
+      phoneNumber,
+      pictureFileId,
+      address } = req.body
+
+    const client = new Client({
+      pid,
+      firstName,
+      lastName,
+      gender,
+      phoneNumber,
+      pictureFileId,
+      address
+    })
 
     client.save((err, doc) => {
       if (err) {
@@ -127,14 +207,26 @@ module.exports = {
    */
   update (req, res, next) {
     const { id } = req.params
+    const { pid,
+      firstName,
+      lastName,
+      gender,
+      phoneNumber,
+      pictureFileId,
+      address } = req.body
 
-    const conditions = {
-      _id: id,
-      deletedAt: { $exists: false }
-    }
+    const conditions = { _id: id }
 
     const update = {
-      $set: flatten(req.validationResult)
+      $set: flatten({
+        pid,
+        firstName,
+        lastName,
+        gender,
+        phoneNumber,
+        pictureFileId,
+        address
+      })
     }
 
     Client.findOneAndUpdate(conditions, update, { new: true }, (err, doc) => {
@@ -177,7 +269,7 @@ module.exports = {
         return
       }
 
-      deleteClient(id)
+      deleteClientAndCloseAccounts(id)
         .then((doc) => res.jsend.success(doc))
         .catch((err) => next(err))
     })

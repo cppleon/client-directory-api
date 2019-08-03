@@ -17,6 +17,7 @@ router.get('/',
   QueryParamsMiddleware.normalizePaging,
   ClientsController.index)
 
+router.get('/counts', ClientsController.getCounts)
 router.get('/:id', ClientsController.get)
 
 router.post('/',
@@ -30,8 +31,7 @@ router.put('/:id',
 router.delete('/:id', ClientsController.delete)
 
 // Accounts
-router.get('/:clientId/accounts',
-  AccountsController.index)
+router.get('/:clientId/accounts', AccountsController.index)
 
 router.get('/:clientId/accounts/:id', AccountsController.get)
 

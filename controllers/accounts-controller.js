@@ -1,4 +1,3 @@
-const flatten = require('flatten-obj')()
 const createError = require('http-errors')
 const Client = require('../models/Client')
 const Account = require('../models/Account')
@@ -14,10 +13,7 @@ module.exports = {
   index (req, res, next) {
     const { clientId } = req.params
 
-    const conditions = {
-      _id: clientId,
-      deletedAt: { $exists: false }
-    }
+    const conditions = { _id: clientId }
 
     Client.findOne(conditions, (err, doc) => {
       if (err) {
@@ -30,9 +26,7 @@ module.exports = {
         return
       }
 
-      const { sort: sortParams } = req.query
-
-      const sort = Helpers.generateSortQuery(sortParams, ['type', 'currency', 'status'])
+      const sort = Helpers.generateSortQuery(req.query.sort, ['type', 'currency', 'status'])
 
       Account.find({ client: clientId }).sort(sort).exec((err, docs) => {
         if (err) {
@@ -54,10 +48,7 @@ module.exports = {
   get (req, res, next) {
     const { id, clientId } = req.params
 
-    const conditions = {
-      _id: clientId,
-      deletedAt: { $exists: false }
-    }
+    const conditions = { _id: clientId }
 
     Client.findOne(conditions, (err, doc) => {
       if (err) {
@@ -94,11 +85,9 @@ module.exports = {
    */
   create (req, res, next) {
     const { clientId } = req.params
+    const { type, currency } = req.body
 
-    const conditions = {
-      _id: clientId,
-      deletedAt: { $exists: false }
-    }
+    const conditions = { _id: clientId }
 
     Client.findOne(conditions, (err, doc) => {
       if (err) {
@@ -111,10 +100,7 @@ module.exports = {
         return
       }
 
-      const account = new Account({
-        ...req.validationResult,
-        client: clientId
-      })
+      const account = new Account({ type, currency, client: clientId })
 
       account.save((err, doc) => {
         if (err) {
@@ -135,11 +121,9 @@ module.exports = {
    */
   update (req, res, next) {
     const { id, clientId } = req.params
+    const { type, currency } = req.body
 
-    const conditions = {
-      _id: clientId,
-      deletedAt: { $exists: false }
-    }
+    const conditions = { _id: clientId }
 
     Client.findOne(conditions, (err, doc) => {
       if (err) {
@@ -153,7 +137,7 @@ module.exports = {
       }
 
       const update = {
-        $set: flatten(req.validationResult)
+        $set: { type, currency }
       }
 
       Account.findOneAndUpdate({ _id: id, client: clientId }, update, { new: true }, (err, doc) => {
@@ -181,10 +165,7 @@ module.exports = {
   delete (req, res, next) {
     const { id, clientId } = req.params
 
-    const conditions = {
-      _id: clientId,
-      deletedAt: { $exists: false }
-    }
+    const conditions = { _id: clientId }
 
     Client.findOne(conditions, (err, doc) => {
       if (err) {

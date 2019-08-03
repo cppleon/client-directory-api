@@ -20,7 +20,8 @@ const schema = Joi.object().options({
   phoneNumber: Joi.string()
     .regex(/^5[0-9]{8}$/),
 
-  pictureFileId: Joi.string(),
+  pictureFileId: Joi.string()
+    .allow(''),
 
   address: Joi.object().keys({
     legal: Joi.object().keys({

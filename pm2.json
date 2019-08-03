@@ -2,6 +2,13 @@
   "name": "client-directory-api",
   "script": "bin/www",
   "watch": true,
+  "ignore_watch": [
+    "temp",
+    "uploads"
+  ],
+  "watch_options": {
+    "followSymlinks": false
+  },
   "env": {
     "DEBUG": "client-directory-api:*",
     "NODE_ENV": "development"
